@@ -9,11 +9,13 @@ void logError(String code, String message) =>
     print('Error: $code\nError Message: $message');
 
 
-List<CameraDescription> cameras;
+CameraController controller;
 
 Future<Null> main() async {
   try {
-    cameras = await availableCameras();
+    var cameras = await availableCameras();
+    var main_camera = cameras.firstWhere((c) => c.lensDirection == CameraLensDirection.back, orElse: () => null);
+    controller = new CameraController(main_camera, ResolutionPreset.high);
   } on CameraException catch (e) {
     logError(e.code, e.description);
   }
@@ -44,15 +46,15 @@ IconData getCameraLensIcon(CameraLensDirection direction) {
 class _CameraExampleHomeState extends State<CameraExampleHome>
   with WidgetsBindingObserver {
 
-  CameraController controller;
+//  CameraController controller;
   String imagePath;
-  String videoPath;
-  VoidCallback videoPlayerListener;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    onNewCameraSelected(controller.description);
   }
 
   @override
@@ -84,22 +86,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       body: Column(
         children: <Widget>[
           Expanded(
-            child: Container(
-              child: Padding(
-                padding: const EdgeInsets.all(1.0),
-                child: Center(
-                  child: _cameraPreviewWidget(),
-                ),
-              ),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                border: Border.all(
-                  color: controller != null && controller.value.isRecordingVideo
-                      ? Colors.redAccent : Colors.grey,
-                  width: 3.0,
-                ),
-              ),
-            ),
+            child: _cameraPreviewWidget()
           ),
           _captureControlRowWidget(),
           Padding(
@@ -107,7 +94,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: <Widget>[
-                _cameraTogglesRowWidget(),
+//                _cameraTogglesRowWidget(),
                 _thumbnailWidget(),
               ],
             )
@@ -171,33 +158,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     );
   }
 
-  /// Display a row of toggle to select the camera (or a message if no camera is available).
-  Widget _cameraTogglesRowWidget() {
-    final List<Widget> toggles = <Widget>[];
-
-    if (cameras.isEmpty) {
-      return const Text('No camera found');
-    } else {
-      for (CameraDescription cameraDescription in cameras) {
-        toggles.add(
-          SizedBox(
-            width: 90.0,
-            child: RadioListTile<CameraDescription>(
-              title: Icon(getCameraLensIcon(cameraDescription.lensDirection)),
-              groupValue: controller?.description,
-              value: cameraDescription,
-              onChanged: controller != null && controller.value.isRecordingVideo
-                  ? null
-                  : onNewCameraSelected,
-            ),
-          ),
-        );
-      }
-    }
-
-    return Row(children: toggles);
-  }
-
   String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();
 
   void showInSnackBar(String message) {
@@ -240,39 +200,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     });
   }
 
-  void onVideoRecordButtonPressed() {
-    startVideoRecording().then((String filePath) {
-      if (mounted) setState(() {});
-      if (filePath != null) showInSnackBar('Saving video to $filePath');
-    });
-  }
-
-  Future<String> startVideoRecording() async {
-    if (!controller.value.isInitialized) {
-      showInSnackBar('Error: select a camera first.');
-      return null;
-    }
-
-    final Directory extDir = await getApplicationDocumentsDirectory();
-    final String dirPath = '${extDir.path}/Movies/flutter_test';
-    await Directory(dirPath).create(recursive: true);
-    final String filePath = '$dirPath/${timestamp()}.mp4';
-
-    if (controller.value.isRecordingVideo) {
-      // A recording is already started, do nothing.
-      return null;
-    }
-
-    try {
-      videoPath = filePath;
-      await controller.startVideoRecording(filePath);
-    } on CameraException catch (e) {
-      _showCameraException(e);
-      return null;
-    }
-    return filePath;
-  }
-
   Future<String> takePicture() async {
     if (!controller.value.isInitialized) {
       showInSnackBar('Error: select a camera first.');
@@ -308,7 +235,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Flutter Camera Sample App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
