@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:async';
 import 'dart:io';
@@ -48,7 +47,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   CameraController controller;
   String imagePath;
   String videoPath;
-  VideoPlayerController videoController;
   VoidCallback videoPlayerListener;
 
   @override
@@ -143,22 +141,10 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     return Expanded(
       child: Align(
         alignment: Alignment.centerRight,
-        child: videoController == null && imagePath == null
+        child: imagePath == null
             ? null
             : SizedBox(
-          child: (videoController == null)
-              ? Image.file(File(imagePath))
-              : Container(
-            child: Center(
-              child: AspectRatio(
-                  aspectRatio: videoController.value.size != null
-                      ? videoController.value.aspectRatio
-                      : 1.0,
-                  child: VideoPlayer(videoController)),
-            ),
-            decoration: BoxDecoration(
-                border: Border.all(color: Colors.pink)),
-          ),
+          child: Image.file(File(imagePath)),
           width: 64.0,
           height: 64.0,
         ),
@@ -181,24 +167,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
               ? onTakePictureButtonPressed
               : null,
         ),
-        IconButton(
-          icon: const Icon(Icons.videocam),
-          color: Colors.blue,
-          onPressed: controller != null &&
-              controller.value.isInitialized &&
-              !controller.value.isRecordingVideo
-              ? onVideoRecordButtonPressed
-              : null,
-        ),
-        IconButton(
-          icon: const Icon(Icons.stop),
-          color: Colors.red,
-          onPressed: controller != null &&
-              controller.value.isInitialized &&
-              controller.value.isRecordingVideo
-              ? onStopButtonPressed
-              : null,
-        )
       ],
     );
   }
@@ -266,8 +234,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       if (mounted) {
         setState(() {
           imagePath = filePath;
-          videoController?.dispose();
-          videoController = null;
         });
         if (filePath != null) showInSnackBar('Picture saved to $filePath');
       }
@@ -278,13 +244,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     startVideoRecording().then((String filePath) {
       if (mounted) setState(() {});
       if (filePath != null) showInSnackBar('Saving video to $filePath');
-    });
-  }
-
-  void onStopButtonPressed() {
-    stopVideoRecording().then((_) {
-      if (mounted) setState(() {});
-      showInSnackBar('Video recorded to: $videoPath');
     });
   }
 
@@ -312,44 +271,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       return null;
     }
     return filePath;
-  }
-
-  Future<void> stopVideoRecording() async {
-    if (!controller.value.isRecordingVideo) {
-      return null;
-    }
-
-    try {
-      await controller.stopVideoRecording();
-    } on CameraException catch (e) {
-      _showCameraException(e);
-      return null;
-    }
-
-    await _startVideoPlayer();
-  }
-
-  Future<void> _startVideoPlayer() async {
-    final VideoPlayerController vcontroller =
-    VideoPlayerController.file(File(videoPath));
-    videoPlayerListener = () {
-      if (videoController != null && videoController.value.size != null) {
-        // Refreshing the state to update video player with the correct ratio.
-        if (mounted) setState(() {});
-        videoController.removeListener(videoPlayerListener);
-      }
-    };
-    vcontroller.addListener(videoPlayerListener);
-    await vcontroller.setLooping(true);
-    await vcontroller.initialize();
-    await videoController?.dispose();
-    if (mounted) {
-      setState(() {
-        imagePath = null;
-        videoController = vcontroller;
-      });
-    }
-    await vcontroller.play();
   }
 
   Future<String> takePicture() async {
