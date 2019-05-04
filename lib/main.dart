@@ -81,7 +81,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: const Text("Camera sample"),
+        title: const Text("Sample of Flutter & ML kit"),
       ),
       body: Column(
         children: <Widget>[
@@ -94,7 +94,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: <Widget>[
-                _thumbnailWidget(),
+                _detectResultWidget(),
               ],
             )
           )
@@ -122,8 +122,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     }
   }
 
-  /// Display the thumbnail of the captured image or video.
-  Widget _thumbnailWidget() {
+  /// Display the detected words.
+  Widget _detectResultWidget() {
     return Expanded(
       child: Align(
         alignment: Alignment.center,
