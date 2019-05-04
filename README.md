@@ -1,16 +1,13 @@
-# camera_sample
+# Flutter camera & ML-kit sample app
+This app is a sample app written in Flutter.
 
-https:&#x2F;&#x2F;pub.dartlang.org&#x2F;packages&#x2F;camera
+Take a picture and recognize text (ascii only).
 
-## Getting Started
+![Screenshot_20190504-174821](https://user-images.githubusercontent.com/2078683/57176768-1ac8e000-6e97-11e9-9af6-6af8ad6ab854.png)
 
-This project is a starting point for a Flutter application.
+## References
+#### prepare `google-services.json`
+https://firebase.google.com/docs/android/setup?hl=ja
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.io/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.io/docs/cookbook)
-
-For help getting started with Flutter, view our 
-[online documentation](https://flutter.io/docs), which offers tutorials, 
-samples, guidance on mobile development, and a full API reference.
+#### OCR by Firebase ML-kit
+https://firebase.google.com/docs/ml-kit/recognize-text
