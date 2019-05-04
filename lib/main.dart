@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:firebase_ml_vision/firebase_ml_vision.dart';
 import 'dart:async';
-import 'dart:io';
 
 
 void logError(String code, String message) =>
@@ -13,9 +12,10 @@ CameraController controller;
 
 Future<Null> main() async {
   try {
-    var cameras = await availableCameras();
-    var main_camera = cameras.firstWhere((c) => c.lensDirection == CameraLensDirection.back, orElse: () => null);
-    controller = new CameraController(main_camera, ResolutionPreset.high);
+    final cameras = await availableCameras();
+    final mainCamera = cameras.firstWhere((c) => c.lensDirection == CameraLensDirection.back, orElse: () => null);
+    controller = new CameraController(mainCamera, ResolutionPreset.high);
+
   } on CameraException catch (e) {
     logError(e.code, e.description);
   }
@@ -47,7 +47,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   with WidgetsBindingObserver {
 
 //  CameraController controller;
-  String imagePath;
+  String _detectedText = null;
 
   @override
   void initState() {
@@ -81,7 +81,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: const Text("Camera sample"),
+        title: const Text("Sample of Flutter & ML kit"),
       ),
       body: Column(
         children: <Widget>[
@@ -94,8 +94,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: <Widget>[
-//                _cameraTogglesRowWidget(),
-                _thumbnailWidget(),
+                _detectResultWidget(),
               ],
             )
           )
@@ -123,17 +122,17 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     }
   }
 
-  /// Display the thumbnail of the captured image or video.
-  Widget _thumbnailWidget() {
+  /// Display the detected words.
+  Widget _detectResultWidget() {
     return Expanded(
       child: Align(
-        alignment: Alignment.centerRight,
-        child: imagePath == null
-            ? null
-            : SizedBox(
-          child: Image.file(File(imagePath)),
-          width: 64.0,
-          height: 64.0,
+        alignment: Alignment.center,
+        child: Text(
+          _detectedText != null && _detectedText.length > 0
+              ? "Detected😃:" + "\n" + _detectedText
+              : "Text not found🤪"
+          ,
+          style: TextStyle(fontStyle: FontStyle.italic,fontSize: 34),
         ),
       ),
     );
@@ -190,25 +189,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   }
 
   void onTakePictureButtonPressed() {
-    takePicture().then((String filePath) {
-      if (mounted) {
-        setState(() {
-          imagePath = filePath;
-        });
-        if (filePath != null) showInSnackBar('Picture saved to $filePath');
-      }
-    });
+    takePicture();
   }
 
-  Future<String> takePicture() async {
+  void takePicture() async {
     if (!controller.value.isInitialized) {
       showInSnackBar('Error: select a camera first.');
       return null;
     }
-    final Directory extDir = await getApplicationDocumentsDirectory();
-    final String dirPath = '${extDir.path}/Pictures/flutter_test';
-    await Directory(dirPath).create(recursive: true);
-    final String filePath = '$dirPath/${timestamp()}.jpg';
 
     if (controller.value.isTakingPicture) {
       // A capture is already pending, do nothing.
@@ -216,12 +204,58 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     }
 
     try {
-      await controller.takePicture(filePath);
+      await controller.startImageStream((CameraImage img) {
+        controller.stopImageStream();
+
+        scanTextFromImage(img).then((dynamic detected) {
+          setState(() {
+            _detectedText = detected;
+          });
+        });
+      });
     } on CameraException catch (e) {
       _showCameraException(e);
-      return null;
     }
-    return filePath;
+  }
+
+  Future<String> scanTextFromImage(CameraImage img) async {
+    final FirebaseVisionImageMetadata metadata = FirebaseVisionImageMetadata(
+        size: Size(img.width.toDouble(), img.height.toDouble()),
+        rawFormat: img.format.raw,
+        planeData: img.planes.map((plane) => FirebaseVisionImagePlaneMetadata(
+          bytesPerRow: plane.bytesPerRow,
+          height: plane.height,
+          width: plane.width,
+          ),
+        ).toList(),
+        rotation: ImageRotation.rotation90,
+    );
+
+    final FirebaseVisionImage visionImage = FirebaseVisionImage.fromBytes(img.planes[0].bytes, metadata);
+    final TextRecognizer textRecognizer = FirebaseVision.instance.textRecognizer();
+    final VisionText visionText = await textRecognizer.processImage(visionImage);
+
+    if (visionText != null) {
+      var detectedWords = <String>[];
+      print("--------------------visionText:${visionText.text}");
+      for (TextBlock block in visionText.blocks) {
+        print("--------------------visionText:${visionText.text}");
+        print(block.text);
+        print(block.boundingBox);
+        print(block.cornerPoints);
+        print(block.confidence);
+
+        for (TextLine line in block.lines) {
+          print(line.text);
+          for (TextElement element in line.elements) {
+            print(element.text);
+            detectedWords.add("'" + element.text + "'");
+          }
+        }
+      }
+      return detectedWords.join(" ");
+    }
+    return null;
   }
 
   void _showCameraException(CameraException e) {
